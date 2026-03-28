@@ -1,14 +1,13 @@
 import axios, { AxiosError } from 'axios';
 
-/** Render API (used when not using same-origin `/api` proxy). */
 const REMOTE_API_ORIGIN = 'https://yt-backend-ys8d.onrender.com';
 
 /**
- * Empty → same-origin `/api/...` (Vite dev proxy or Vercel rewrite in `frontend/vercel.json`).
- * Set at build time: `vite.config` defines `__USE_RELATIVE_API__` from `process.env.VERCEL` (Vercel CI)
- * or `VITE_RELATIVE_API=1` for a custom domain / self-hosted static that proxies `/api`.
+ * Production builds always call Render directly (CORS allows *.vercel.app).
+ * Posting to `*.vercel.app/api/*` hits static hosting → HTTP 405; Vercel→external POST rewrites are unreliable.
+ * Dev: empty prefix → `/api/*` goes through Vite proxy to local backend.
  */
-const API_PREFIX = import.meta.env.DEV || __USE_RELATIVE_API__ ? '' : REMOTE_API_ORIGIN;
+const API_PREFIX = import.meta.env.DEV ? '' : REMOTE_API_ORIGIN;
 
 const videoInfoUrl = () => (API_PREFIX ? `${API_PREFIX}/api/video-info` : '/api/video-info');
 const downloadStatusUrl = () => (API_PREFIX ? `${API_PREFIX}/api/download-status` : '/api/download-status');
@@ -59,12 +58,12 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
   }
   if (axiosError.response?.status === 405) {
     return (
-      'HTTP 405: /api is not proxied to Render. Redeploy with root `frontend/vercel.json` (api rewrite) or hard refresh.'
+      'HTTP 405: stale UI calling /api on Vercel. Hard refresh (Ctrl+Shift+R) or redeploy; API must hit Render, not the static host.'
     );
   }
   if (axiosError.code === 'ECONNABORTED') return 'Request timed out. Please try again.';
   if (axiosError.code === 'ERR_NETWORK' || axiosError.code === 'ECONNREFUSED')
-    return 'Cannot reach the API. Check Render is up and Vercel rewrites /api to Render.';
+    return 'Cannot reach the API. Check Render is up and REMOTE_API_ORIGIN in api.ts.';
   if (axiosError.code === 'ECONNRESET' || /ECONNRESET/i.test(String(axiosError.message)))
     return 'Connection was reset while talking to the API. Retry or wait if the API was cold-starting.';
   if (axiosError.message) return axiosError.message;
