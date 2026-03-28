@@ -32,6 +32,44 @@
     <link rel="canonical" href="https://vibedown.vercel.app/" />
     <link rel="icon" type="image/png" href="/vibedown-logo.png" />
     <link rel="apple-touch-icon" href="/vibedown-logo.png" />
+    <!-- Send /api/* to Render on real deploys (fixes old JS bundles that POST to Vercel → 405). Skips localhost (Vite proxy). -->
+    <script>
+      (function () {
+        var h = location.hostname;
+        if (h === 'localhost' || h === '127.0.0.1') return;
+        var API = 'https://yt-backend-ys8d.onrender.com';
+        function toAbs(url) {
+          if (typeof url !== 'string') return url;
+          if (url.indexOf('/api/') === 0) return API + url;
+          try {
+            var u = new URL(url, location.href);
+            if (u.origin === location.origin && u.pathname.indexOf('/api/') === 0) {
+              return API + u.pathname + u.search + u.hash;
+            }
+          } catch (e) {}
+          return url;
+        }
+        var xhrOpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function (method, url) {
+          return xhrOpen.apply(this, [method, toAbs(url)].concat([].slice.call(arguments, 2)));
+        };
+        var nativeFetch = window.fetch;
+        window.fetch = function (input, init) {
+          if (typeof input === 'string') input = toAbs(input);
+          else if (typeof Request !== 'undefined' && input instanceof Request) {
+            var abs = toAbs(input.url);
+            if (abs !== input.url) input = new Request(abs, input);
+          }
+          return nativeFetch.call(this, input, init);
+        };
+        var nativeOpen = window.open;
+        window.open = function () {
+          var args = [].slice.call(arguments);
+          if (typeof args[0] === 'string') args[0] = toAbs(args[0]);
+          return nativeOpen.apply(window, args);
+        };
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
