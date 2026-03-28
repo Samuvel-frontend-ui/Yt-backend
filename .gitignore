@@ -2,3 +2,4 @@
 node_modules/
 
 .tmp-curl-body.json
+.vercel
