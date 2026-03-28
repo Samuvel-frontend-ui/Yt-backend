@@ -10,7 +10,17 @@ export default defineConfig(() => {
   return {
     /** Load optional `.env` for dev (`VITE_BACKEND_URL`, etc.). */
     envDir: path.resolve(__dirname),
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      {
+        name: 'vibedown-build-stamp',
+        transformIndexHtml(html) {
+          const stamp = new Date().toISOString();
+          return html.replace('<head>', `<head>\n    <!-- vibedown-build: ${stamp} -->`);
+        },
+      },
+    ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
