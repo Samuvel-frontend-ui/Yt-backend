@@ -5,6 +5,8 @@
   "workspaces": ["frontend"],
   "scripts": {
     "build": "npm run build -w vibedown-frontend",
-    "vercel-build": "npm run build"
+    "vercel-build": "npm run build",
+    "lint": "npm run lint -w vibedown-frontend",
+    "verify": "npm run lint && npm run build && python -m py_compile backend/main.py"
   }
 }
