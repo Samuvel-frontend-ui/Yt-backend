@@ -1,13 +1,15 @@
 import axios, { AxiosError } from 'axios';
 
 /**
- * Always use this full base URL (no env, no `/api` on Vercel — that causes POST → 405 on static hosting).
- * For local backend testing, temporarily set to `http://127.0.0.1:8000/api` (and allow CORS on the API).
+ * Use full URLs on every request (not only axios `baseURL`). Some cached/old builds or edge cases
+ * still POST to same-origin `/api/...` on Vercel → HTTP 405. Absolute URLs cannot drift to the UI host.
+ * For local API: temporarily set ORIGIN below to `http://127.0.0.1:8000`.
  */
-const API_BASE_URL = 'https://yt-backend-ys8d.onrender.com/api';
+const API_ORIGIN = 'https://yt-backend-ys8d.onrender.com';
+const VIDEO_INFO_URL = `${API_ORIGIN}/api/video-info`;
+const DOWNLOAD_STATUS_URL = `${API_ORIGIN}/api/download-status`;
 
 const api = axios.create({
-  baseURL: API_BASE_URL,
   timeout: 120_000,
   headers: {
     'Content-Type': 'application/json',
@@ -53,12 +55,12 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
   }
   if (axiosError.response?.status === 405) {
     return (
-      'HTTP 405: still posting to the wrong host. Ensure API_BASE_URL in frontend/src/services/api.ts is your Render URL + /api.'
+      'HTTP 405: request hit static hosting (wrong host). Hard refresh (Ctrl+Shift+R) or redeploy; API_ORIGIN must be your Render URL in frontend/src/services/api.ts.'
     );
   }
   if (axiosError.code === 'ECONNABORTED') return 'Request timed out. Please try again.';
   if (axiosError.code === 'ERR_NETWORK' || axiosError.code === 'ECONNREFUSED')
-    return 'Cannot reach the API. Check that the Render service is up and API_BASE_URL in api.ts is correct.';
+    return 'Cannot reach the API. Check that the Render service is up and API_ORIGIN in api.ts is correct.';
   if (axiosError.code === 'ECONNRESET' || /ECONNRESET/i.test(String(axiosError.message)))
     return 'Connection was reset while talking to the API. Retry or wait if the API was cold-starting.';
   if (axiosError.message) return axiosError.message;
@@ -72,7 +74,7 @@ export const videoService = {
     }
 
     try {
-      const response = await api.post<VideoInfo>('/video-info', { url: url.trim() });
+      const response = await api.post<VideoInfo>(VIDEO_INFO_URL, { url: url.trim() });
       return response.data;
     } catch (error) {
       throw new Error(getApiErrorMessage(error, 'Failed to fetch video info'));
@@ -93,11 +95,11 @@ export const videoService = {
     if (opts?.title?.trim()) params.set('title', opts.title.trim());
     if (opts?.kind) params.set('kind', opts.kind);
     if (opts?.requestId) params.set('request_id', opts.requestId);
-    return `${API_BASE_URL}/download?${params.toString()}`;
+    return `${API_ORIGIN}/api/download?${params.toString()}`;
   },
 
   async fetchDownloadStatus(requestId: string): Promise<DownloadProgress> {
-    const response = await api.get<DownloadProgress>('/download-status', { params: { request_id: requestId } });
+    const response = await api.get<DownloadProgress>(DOWNLOAD_STATUS_URL, { params: { request_id: requestId } });
     return response.data;
   },
 };

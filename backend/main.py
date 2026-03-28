@@ -31,20 +31,22 @@ VIDEO_INFO_TTL = 180
 DOWNLOAD_PROGRESS: dict[str, dict[str, Any]] = {}
 DOWNLOAD_PROGRESS_TTL = 600
 
-# Browser origins allowed to call this API (no env — edit here if the frontend URL changes).
+# Local dev + any production / preview on Vercel (*.vercel.app). Production hostname also covered by regex.
 ALLOWED_CORS_ORIGINS: tuple[str, ...] = (
-    "https://youtube-video-jade.vercel.app",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 )
+# Prevents CORS failures when the UI is opened on a Vercel preview URL (not only the primary domain).
+VERCEL_APP_ORIGIN_REGEX = r"https://.*\.vercel\.app"
 
 
 app = FastAPI(title="VibeDown API", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(ALLOWED_CORS_ORIGINS),
+    allow_origin_regex=VERCEL_APP_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
