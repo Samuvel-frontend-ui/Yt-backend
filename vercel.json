@@ -6,8 +6,8 @@
   "outputDirectory": "frontend/dist",
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "https://yt-backend-ys8d.onrender.com/api/:path*"
+      "source": "/api/(.*)",
+      "destination": "/api/proxy?p=$1"
     },
     {
       "source": "/(.*)",
