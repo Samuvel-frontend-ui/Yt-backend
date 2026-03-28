@@ -3,9 +3,8 @@ import axios, { AxiosError } from 'axios';
 const REMOTE_API_ORIGIN = 'https://yt-backend-ys8d.onrender.com';
 
 /**
- * Production builds always call Render directly (CORS allows *.vercel.app).
- * Posting to `*.vercel.app/api/*` hits static hosting → HTTP 405; Vercel→external POST rewrites are unreliable.
- * Dev: empty prefix → `/api/*` goes through Vite proxy to local backend.
+ * Dev: `/api` via Vite proxy. Production bundle: always Render (never POST to Vercel static → 405).
+ * Cached old JS is rewritten by the inline shim in index.html.
  */
 const API_PREFIX = import.meta.env.DEV ? '' : REMOTE_API_ORIGIN;
 
