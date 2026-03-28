@@ -1,13 +1,17 @@
 import axios, { AxiosError } from 'axios';
 
+/** Render API (used when not using same-origin `/api` proxy). */
+const REMOTE_API_ORIGIN = 'https://yt-backend-ys8d.onrender.com';
+
 /**
- * Use full URLs on every request (not only axios `baseURL`). Some cached/old builds or edge cases
- * still POST to same-origin `/api/...` on Vercel → HTTP 405. Absolute URLs cannot drift to the UI host.
- * For local API: temporarily set ORIGIN below to `http://127.0.0.1:8000`.
+ * Empty → same-origin `/api/...` (Vite dev proxy or Vercel rewrite in `frontend/vercel.json`).
+ * Set at build time: `vite.config` defines `__USE_RELATIVE_API__` from `process.env.VERCEL` (Vercel CI)
+ * or `VITE_RELATIVE_API=1` for a custom domain / self-hosted static that proxies `/api`.
  */
-const API_ORIGIN = 'https://yt-backend-ys8d.onrender.com';
-const VIDEO_INFO_URL = `${API_ORIGIN}/api/video-info`;
-const DOWNLOAD_STATUS_URL = `${API_ORIGIN}/api/download-status`;
+const API_PREFIX = import.meta.env.DEV || __USE_RELATIVE_API__ ? '' : REMOTE_API_ORIGIN;
+
+const videoInfoUrl = () => (API_PREFIX ? `${API_PREFIX}/api/video-info` : '/api/video-info');
+const downloadStatusUrl = () => (API_PREFIX ? `${API_PREFIX}/api/download-status` : '/api/download-status');
 
 const api = axios.create({
   timeout: 120_000,
@@ -55,12 +59,12 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
   }
   if (axiosError.response?.status === 405) {
     return (
-      'HTTP 405: request hit static hosting (wrong host). Hard refresh (Ctrl+Shift+R) or redeploy; API_ORIGIN must be your Render URL in frontend/src/services/api.ts.'
+      'HTTP 405: /api is not proxied to Render. Redeploy with root `frontend/vercel.json` (api rewrite) or hard refresh.'
     );
   }
   if (axiosError.code === 'ECONNABORTED') return 'Request timed out. Please try again.';
   if (axiosError.code === 'ERR_NETWORK' || axiosError.code === 'ECONNREFUSED')
-    return 'Cannot reach the API. Check that the Render service is up and API_ORIGIN in api.ts is correct.';
+    return 'Cannot reach the API. Check Render is up and Vercel rewrites /api to Render.';
   if (axiosError.code === 'ECONNRESET' || /ECONNRESET/i.test(String(axiosError.message)))
     return 'Connection was reset while talking to the API. Retry or wait if the API was cold-starting.';
   if (axiosError.message) return axiosError.message;
@@ -74,7 +78,7 @@ export const videoService = {
     }
 
     try {
-      const response = await api.post<VideoInfo>(VIDEO_INFO_URL, { url: url.trim() });
+      const response = await api.post<VideoInfo>(videoInfoUrl(), { url: url.trim() });
       return response.data;
     } catch (error) {
       throw new Error(getApiErrorMessage(error, 'Failed to fetch video info'));
@@ -95,11 +99,12 @@ export const videoService = {
     if (opts?.title?.trim()) params.set('title', opts.title.trim());
     if (opts?.kind) params.set('kind', opts.kind);
     if (opts?.requestId) params.set('request_id', opts.requestId);
-    return `${API_ORIGIN}/api/download?${params.toString()}`;
+    const base = API_PREFIX ? `${API_PREFIX}/api/download` : '/api/download';
+    return `${base}?${params.toString()}`;
   },
 
   async fetchDownloadStatus(requestId: string): Promise<DownloadProgress> {
-    const response = await api.get<DownloadProgress>(DOWNLOAD_STATUS_URL, { params: { request_id: requestId } });
+    const response = await api.get<DownloadProgress>(downloadStatusUrl(), { params: { request_id: requestId } });
     return response.data;
   },
 };
